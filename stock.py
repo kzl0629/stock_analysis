@@ -220,11 +220,22 @@ class Dealor(object):
         del lines[-1]
 
         if os.path.exists(Dealor.history_path):
-            shutil.rmtree(Dealor.history_path)
+            timestamp = datetime.datetime.now().__str__().split('.')[0].replace(' ', '_').replace(':', '_')
+            shutil.move(Dealor.history_path, Dealor.history_path + '_' + timestamp)
+
+            tmp = os.listdir(os.path.dirname(Dealor.history_path))
+            base_name = os.path.basename(Dealor.history_path)
+            dir_list = []
+            for i in range(0, len(tmp)):
+                if tmp[i].startswith(base_name + '_'):
+                    dir_list.append(tmp[i])
+            if len(dir_list) > 3:
+                dir_list.sort()
+                for item in dir_list[0:-3]:
+                    shutil.rmtree(os.path.dirname(Dealor.history_path) + os.path.sep + item)
         os.mkdir(Dealor.history_path)
 
         start_time = time.time()
-        #con_exec(self._download_history_data, lines, 1)
         if mode == 'slow':
             for line in lines:
                 retry_times = 10
@@ -278,8 +289,8 @@ class Dealor(object):
         f2 = open(ApplicatoinConfig().get_config_item('stock_file', 'kdj_filter'), 'w')
         f3 = open(ApplicatoinConfig().get_config_item('stock_file', 'all_indexor_filter'), 'w')
         for line in lines:
-            self.logger.debug('cal single stock indexor ' + code)
             code = line.split('\t')[2]
+            self.logger.debug('cal single stock indexor ' + code)
             k_value, d_value, j_value, diff, dea9, macd = self.single_stock_indexor(code)
             macd_flag = False
             kdj_flag = False

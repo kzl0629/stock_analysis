@@ -60,6 +60,17 @@ def clear_log_file():
 
 def backup_log_file():
     log_file = ApplicatoinConfig().get_config_item('config', 'log_file')
-    if os.path.exists(log_file):
+    if os.path.isfile(log_file):
         timestamp = datetime.datetime.now().__str__().split('.')[0].replace(' ', '_').replace(':', '_')
         shutil.move(log_file, log_file + '_' + timestamp)
+
+    base_path = os.path.dirname(log_file)
+    tmp = os.listdir(base_path)
+    dir_list = []
+    for i in range(0, len(tmp)):
+        if tmp[i].startswith('stock.log2_'):
+            dir_list.append(tmp[i])
+    if len(dir_list) > 3:
+        dir_list.sort()
+        for item in dir_list[0:-3]:
+            os.remove(base_path + os.path.sep + item)

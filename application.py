@@ -10,16 +10,13 @@ init()
 stkDealor = Dealor()
 
 # stkDealor._download_history_data('600477')
-
-#stkDealor.update_stock_list()
+#
+# stkDealor.update_stock_list()
 #
 # stkDealor.stocks_to_txt()
-# stkDealor.update_hitory_data('fast')
+stkDealor.update_hitory_data('slow')
 # stkDealor.filter(0,100,0,100,1,100,50, None)
 
-
-# end = time.time()
-# print end - start
 stkDealor.indexor_filter()
 
 # k_value, d_value, j_value, diff, dea9, macd = stkDealor.single_stock_indexor('600477')
