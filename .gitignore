@@ -4,3 +4,4 @@ resource/history_data*
 .idea
 logs
 *.txt
+nohup.out

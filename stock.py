@@ -10,6 +10,7 @@ import logging
 import csv
 from math import fabs
 import datetime
+import copy
 
 from bs4 import BeautifulSoup
 import tushare
@@ -255,9 +256,9 @@ class Dealor(object):
             raise Exception('Unexpect Error')
         print time.time() - start_time
 
-    def single_stock_indexor(self, code):
+    def single_stock_indexor(self, code, data_dir):
         file_name = code + '.csv'
-        csv_reader = csv.reader(open(Dealor.history_path + os.path.sep + file_name, 'r'))
+        csv_reader = csv.reader(open(data_dir + os.path.sep + file_name, 'r'))
         csv_reader.next()
 
         settlements = []
@@ -279,29 +280,55 @@ class Dealor(object):
             raise Exception('Unexpected Exception')
         return k_value, d_value, j_value, diff, dea9, macd
 
-    def indexor_filter(self):
-        lines = None
+    def indexor_filter(self, code_list_src, dir=None):
+        #map code to details
         stock_detail = ApplicatoinConfig().get_config_item('stock_file', 'stock_detail')
         with open(stock_detail, 'r') as f:
-            lines = f.readlines()
+            detail_lines = f.readlines()
+        code_dtl_map = {}
+        for i in range(0, len(detail_lines)):
+            code = detail_lines[i].split('\t')[2]
+            code_dtl_map[code] = detail_lines[i]
+
+        lines = None
+        if code_list_src == 'stock_detail':
+            lines = list(code_dtl_map.keys())
+            dir = ApplicatoinConfig().get_config_item('stock_file', 'history_path')
+        elif code_list_src == 'history_data':
+            if dir == None:
+                dir = ApplicatoinConfig().get_config_item('stock_file', 'history_path')
+            lines = os.listdir(dir)
+            for i in range(0, len(lines)):
+                lines[i] = lines[i].split('.')[0]
+        else:
+            raise Exception('Unexpected Error')
 
         f1 = open(ApplicatoinConfig().get_config_item('stock_file', 'macd_filter'), 'w')
         f2 = open(ApplicatoinConfig().get_config_item('stock_file', 'kdj_filter'), 'w')
         f3 = open(ApplicatoinConfig().get_config_item('stock_file', 'all_indexor_filter'), 'w')
-        for line in lines:
-            code = line.split('\t')[2]
+
+        for code in lines:
             self.logger.debug('cal single stock indexor ' + code)
-            k_value, d_value, j_value, diff, dea9, macd = self.single_stock_indexor(code)
+            k_value, d_value, j_value, diff, dea9, macd = self.single_stock_indexor(code, dir)
             macd_flag = False
             kdj_flag = False
             if self._gold_branch(diff, dea9):
-                f1.write(code + '\n')
+                if code_dtl_map.get(code):
+                    f1.write(code_dtl_map.get(code))
+                else:
+                    f1.write(code + '\n')
                 macd_flag = True
             if self._gold_branch(k_value, d_value):
-                f2.write(code + '\n')
+                if code_dtl_map.get(code):
+                    f2.write(code_dtl_map.get(code))
+                else:
+                    f2.write(code + '\n')
                 kdj_flag = True
             if macd_flag and kdj_flag:
-                f3.write(code + '\n')
+                if code_dtl_map.get(code):
+                    f3.write(code_dtl_map.get(code))
+                else:
+                    f3.write(code + '\n')
             f1.flush()
             f2.flush()
             f3.flush()
