@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-
+__all__ = ['base_path']
 import os
 import shutil
 import datetime
@@ -7,6 +7,9 @@ import logging.config
 
 from lib.config import  ApplicatoinConfig
 
+base_path = os.path.dirname(ApplicatoinConfig().get_config_item('config', 'log_file'))
+if not os.path.isdir(base_path):
+    os.mkdir(base_path)
 
 def init():
     logging.config.dictConfig({

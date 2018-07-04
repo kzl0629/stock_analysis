@@ -4,5 +4,4 @@ resource/history_data*
 .idea
 logs
 *.txt
-*.pyc
 nohup.out

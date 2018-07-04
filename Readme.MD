@@ -32,4 +32,9 @@ stock_analysis
                         |-------kdj_filter.txt
                         |-------all_indexor_filter.txt
 
+2. start application
+sh ./start.sh &
 
+3. stop application
+ps -ef | grep start.sh | awk -F ' ' '{print $2}' | xargs kill -9
+ps -ef | grep application.py | awk -F ' ' '{print $2}' | xargs kill -9
