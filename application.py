@@ -9,11 +9,11 @@ init()
 stkDealor = Dealor()
 
 
-# stkDealor.update_stock_list()
-#
-# stkDealor.stocks_to_txt()
-# stkDealor.update_hitory_data('slow')
-#stkDealor.filter(0,100,0,100,1,100,50, None)
+stkDealor.update_stock_list()
+
+stkDealor.stocks_to_txt()
+stkDealor.update_hitory_data('slow')
+stkDealor.filter(0,100,0,100,1,100,50, None)
 
 
 #stkDealor.indexor_filter('history_data',
