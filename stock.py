@@ -430,3 +430,20 @@ class Indexor(object):
             print i, e.message
 
         return k_value, d_value, j_value
+
+    #calc new three price
+    def calc_ltp(self, settlements):
+        result_list = []
+        if len(settlements) <=3:
+            return []
+        if len(settlements) >= 100:
+            settlements = settlements[-100:]
+
+        ltp_list = [settlements[0]]
+        direction = True
+        result_list = [settlements[0]]
+
+        for i in range(1,len(settlements)):
+            if direction == True:
+                if ltp_list[0] > settlements[i]:
+                    
