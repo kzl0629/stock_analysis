@@ -68,7 +68,7 @@ def backup_log_file():
     tmp = os.listdir(base_path)
     dir_list = []
     for i in range(0, len(tmp)):
-        if tmp[i].startswith('stock.log2_'):
+        if tmp[i].startswith(os.path.basename(log_file + '_')):
             dir_list.append(tmp[i])
     if len(dir_list) > 3:
         dir_list.sort()

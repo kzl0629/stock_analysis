@@ -178,11 +178,15 @@ class Dealor(object):
         print time.time() - start_time
 
     def _download_history_data_slow(self, stock):
+        # os.environ['http_proxy'] = "115.229.112.48:9000"
+        # os.environ['https_proxy'] = "115.229.112.48:9000"
+
         stock = stock[2:]
         data = tushare.get_h_data(stock)
         with open(Dealor.history_path + os.path.sep + stock + '.csv', 'w') as f:
             header = 'date, code, name, close, high, low, open\n'
             f.write(header)
+            f.flush()
             for row in data.iterrows():
                 values = row[1].__str__().split('\n')
                 line = '%s, %s, %s, %s, %s, %s, %s\n' % \
@@ -230,7 +234,7 @@ class Dealor(object):
             for i in range(0, len(tmp)):
                 if tmp[i].startswith(base_name + '_'):
                     dir_list.append(tmp[i])
-            if len(dir_list) > 3:
+            if len(dir_list) > ApplicatoinConfig().get_config_item('config', 'stock_replica_num'):
                 dir_list.sort()
                 for item in dir_list[0:-3]:
                     shutil.rmtree(os.path.dirname(Dealor.history_path) + os.path.sep + item)
@@ -238,6 +242,7 @@ class Dealor(object):
 
         start_time = time.time()
         if mode == 'slow':
+            self.logger.info('will download sotck list %s len %s' % (str(lines), len(lines)))
             for line in lines:
                 retry_times = 10
                 for i in range(0, retry_times):
@@ -278,9 +283,10 @@ class Dealor(object):
         except:
             print code,'code',settlements
             raise Exception('Unexpected Exception')
-        return k_value, d_value, j_value, diff, dea9, macd
+        ltp = indexor.calc_ltp(settlements)
+        return k_value, d_value, j_value, diff, dea9, macd, ltp
 
-    def indexor_filter(self, code_list_src, dir=None):
+    def indexor_filter(self, code_list_src, dir, *filter_list):
         #map code to details
         stock_detail = ApplicatoinConfig().get_config_item('stock_file', 'stock_detail')
         with open(stock_detail, 'r') as f:
@@ -306,12 +312,15 @@ class Dealor(object):
         f1 = open(ApplicatoinConfig().get_config_item('stock_file', 'macd_filter'), 'w')
         f2 = open(ApplicatoinConfig().get_config_item('stock_file', 'kdj_filter'), 'w')
         f3 = open(ApplicatoinConfig().get_config_item('stock_file', 'all_indexor_filter'), 'w')
+        f4 = open(ApplicatoinConfig().get_config_item('stock_file', 'ltp_filter'), 'w')
 
         for code in lines:
             self.logger.debug('cal single stock indexor ' + code)
-            k_value, d_value, j_value, diff, dea9, macd = self.single_stock_indexor(code, dir)
+            k_value, d_value, j_value, diff, dea9, macd, ltp = self.single_stock_indexor(code, dir)
             macd_flag = False
             kdj_flag = False
+            ltp_flag = False
+
             if self._gold_branch(diff, dea9):
                 if code_dtl_map.get(code):
                     f1.write(code_dtl_map.get(code))
@@ -324,7 +333,14 @@ class Dealor(object):
                 else:
                     f2.write(code + '\n')
                 kdj_flag = True
-            if macd_flag and kdj_flag:
+            if len(ltp) > 0 and ltp[-1][0] > 0:
+                if code_dtl_map.get(code):
+                    f4.write(code_dtl_map.get(code))
+                else:
+                    f4.write(code + '\n')
+                ltp_flag = True
+
+            if macd_flag and kdj_flag and ltp_flag:
                 if code_dtl_map.get(code):
                     f3.write(code_dtl_map.get(code))
                 else:
@@ -336,6 +352,25 @@ class Dealor(object):
         f1.close()
         f2.close()
         f3.close()
+
+
+    def conjun_indexor(self, *indexor_list):
+        if indexor_list == None and len(indexor_list) == 1:
+            return
+        filter_file = ApplicatoinConfig().get_config_item('stock_file', '%s_filter' % indexor_list[0])
+        fd = open(filter_file, 'r')
+        result_set = set(fd.readlines())
+        for i in range(1, len(indexor_list)):
+            fd = open(ApplicatoinConfig().get_config_item('stock_file', '%s_filter' % indexor_list[i]), 'r')
+            tmp_set = set(fd.readlines())
+            result_set = result_set & tmp_set
+        dir_name = os.path.dirname(filter_file)
+        file_name = dir_name + os.path.sep + '_'.join(indexor_list) + '_filter.txt'
+        with open(file_name, 'w') as f:
+            f.writelines(result_set)
+            f.flush()
+        return
+
 
     def _gold_branch(self, fast_line, slow_line):
         if fast_line[-1] > slow_line[-1]:
@@ -433,17 +468,56 @@ class Indexor(object):
 
     #calc new three price
     def calc_ltp(self, settlements):
-        result_list = []
         if len(settlements) <=3:
             return []
         if len(settlements) >= 100:
             settlements = settlements[-100:]
 
-        ltp_list = [settlements[0]]
         direction = True
+
         result_list = [settlements[0]]
+        result_list_loc = [0]
+        low = 0
+        high = 0
 
         for i in range(1,len(settlements)):
+            # up direction
             if direction == True:
-                if ltp_list[0] > settlements[i]:
-                    
+                #bigger than lowest
+                if settlements[i] >= result_list[low] :
+                    if settlements[i] <= result_list[high]:
+                        continue
+                    else:
+                        result_list.append(settlements[i])
+                        result_list_loc.append(i)
+                        if high - low == 2:
+                            low += 1
+                        high += 1
+                #smaller than lowest, direction will be changed
+                else:
+                    result_list.append(-settlements[i])
+                    result_list_loc.append(i)
+                    direction = False
+                    high += 1
+                    low = high
+            # down direction
+            else:
+                # smaller than the highest
+                if settlements[i] <= -result_list[high] :
+                    if settlements[i] >= -result_list[low]:
+                        continue
+                    else:
+                        result_list.append(-settlements[i])
+                        result_list_loc.append(i)
+                        if low - high == 2:
+                            high += 1
+                        low += 1
+                #bigger than highest, direction will be changed
+                else:
+                    result_list.append(settlements[i])
+                    result_list_loc.append(i)
+                    direction = True
+                    low += 1
+                    high = low
+
+        return zip(result_list, result_list_loc)
