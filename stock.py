@@ -142,7 +142,7 @@ class Dealor(object):
                     sys.exit()
                 f.write(stock_details[1] + '\n')
             f.flush()
-        print time.time() - start_time
+        print time.time() - start_time, 'update_stock_list'
 
 
     def stocks_to_txt(self):
@@ -175,91 +175,59 @@ class Dealor(object):
                         '\t' + stock_details[3] + '\t' + stock_details[4] + '\t' + stock_details[5]
                         + '\n')
             f.flush()
-        print time.time() - start_time
+        print time.time() - start_time, 'stocks_to_txt'
 
-    def _download_history_data_slow(self, stock):
-        # os.environ['http_proxy'] = "115.229.112.48:9000"
-        # os.environ['https_proxy'] = "115.229.112.48:9000"
-
+    def _download_history_data(self, stock):
+        today = datetime.datetime.now().__str__().split(' ')[0]
         stock = stock[2:]
-        data = tushare.get_h_data(stock)
-        with open(Dealor.history_path + os.path.sep + stock + '.csv', 'w') as f:
-            header = 'date, code, name, close, high, low, open\n'
-            f.write(header)
-            f.flush()
-            for row in data.iterrows():
-                values = row[1].__str__().split('\n')
-                line = '%s, %s, %s, %s, %s, %s, %s\n' % \
-                       (row[0].__str__().split()[0], stock, 'NULL', values[2].split()[-1], values[1].split()[-1],
-                        values[3].split()[-1], values[0].split()[-1])
-                f.write(line)
-            f.flush()
-        return stock
+        filePath = Dealor.history_path + os.path.sep + stock + '.csv'
+        if os.path.exists(filePath) == False:
+            data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='hfq')
+            data.to_csv(filePath)
+        else:
+            with open(filePath, 'r') as f:
+                f.seek(-200, 2)
+                lines = f.readlines()
+                items = lines[-1].split(',')
+                num = int(items[0])
+                start_date = items[1]
+            #append new data
+            data = tushare.get_k_data(stock, start=start_date, end=today, autype='hfq')
+            with open(filePath, 'a') as f:
+                itor = data.iterrows()
+                itor.next()
+                for row in itor:
+                    num += 1
+                    line = '%s,%s\n' % (num, ','.join(map(str,row[1].tolist())))
 
-    def _download_history_data_fast(self, stock):
-        if stock[0:2] == 'sh':
-            stock = '0' + stock[2:]
-        elif stock[0:2] == 'sz':
-            stock = '1' + stock[2:]
+                    f.write(line)
+                f.flush()
 
-
-        res = request_timeout('http://quotes.money.163.com/service/chddata.html?code='
-                              + stock +
-                              '&start=19901219&end=20380426&fields=TCLOSE;HIGH;LOW;TOPEN;'
-                              'LCLOSE;CHG;PCHG;TURNOVER;VOTURNOVER;VATURNOVER;TCAP;MCAP', 10)
-        self.logger.info('download_history_data: ' + stock)
-        if res == None:
-            self.logger.info('request error')
-            sys.exit(0)
-        with open(Dealor.history_path + os.path.sep + stock[1:] + '.csv', 'w') as f:
-            f.write(res.content)
-            f.flush()
-
-        return stock
-
-    def update_hitory_data(self, mode):
+    def update_hitory_data(self):
         stock_code = ApplicatoinConfig().get_config_item('stock_file', 'stock_code')
         with open(stock_code, 'r') as f1:
             lines = f1.readlines()
         lines = ''.join(lines).split('\n')
         del lines[-1]
 
-        if os.path.exists(Dealor.history_path):
-            timestamp = datetime.datetime.now().__str__().split('.')[0].replace(' ', '_').replace(':', '_')
-            shutil.move(Dealor.history_path, Dealor.history_path + '_' + timestamp)
-
-            tmp = os.listdir(os.path.dirname(Dealor.history_path))
-            base_name = os.path.basename(Dealor.history_path)
-            dir_list = []
-            for i in range(0, len(tmp)):
-                if tmp[i].startswith(base_name + '_'):
-                    dir_list.append(tmp[i])
-            if len(dir_list) > ApplicatoinConfig().get_config_item('config', 'stock_replica_num'):
-                dir_list.sort()
-                for item in dir_list[0:-3]:
-                    shutil.rmtree(os.path.dirname(Dealor.history_path) + os.path.sep + item)
-        os.mkdir(Dealor.history_path)
+        if os.path.exists(Dealor.history_path) == False:
+            os.mkdir(Dealor.history_path)
 
         start_time = time.time()
-        if mode == 'slow':
-            self.logger.info('will download sotck list %s len %s' % (str(lines), len(lines)))
-            for line in lines:
-                retry_times = 10
-                for i in range(0, retry_times):
-                    try:
-                        self._download_history_data_slow(line)
-                        self.logger.info('download sotck %s at %s' % (str(line),str(datetime.datetime.now())))
-                        break
-                    except Exception, e:
-                        self.logger.error('_download_history_data retry: ' + str(i) +
-                                          ' stock:' + str(line) + ' ' + e.__str__())
-                        time.sleep(55)
-        elif mode == 'fast':
-            process_num = int(ApplicatoinConfig().get_config_item('config', 'download_history_process_num'))
-            con_exec(self._download_history_data_fast, lines, process_num)
-        else:
-            raise Exception('Unexpect Error')
-        print time.time() - start_time
+        self.logger.info('will download sotck list %s len %s' % (str(lines), len(lines)))
+        for line in lines:
+            retry_times = 10
+            for i in range(0, retry_times):
+                try:
+                    self._download_history_data(line)
+                    self.logger.info('download sotck %s at %s' % (str(line), str(datetime.datetime.now())))
+                    break
+                except Exception, e:
+                    self.logger.error('_download_history_data retry: ' + str(i) +
+                                      ' stock:' + str(line) + ' ' + e.__str__())
+                    time.sleep(55)
+
+        print time.time() - start_time, 'update_hitory_data'
 
     def single_stock_indexor(self, code, data_dir):
         file_name = code + '.csv'
