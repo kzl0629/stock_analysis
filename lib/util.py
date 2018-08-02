@@ -7,7 +7,10 @@ from requests import Response
 from requests.auth import HTTPProxyAuth
 from multiprocessing import Pool
 
+import gevent
+
 from lib.config import ApplicatoinConfig
+
 proxies ={"http":"http://proxy.huawei.com:8080","https":"https://proxy,huawei.com:8080"}
 auth = HTTPProxyAuth('k00399859', 'qgmmztmn_6')
 proxies = None
@@ -57,6 +60,26 @@ def con_exec(func, list_args, processes=process_num):
         result_details_list.append(result_details)
     return result_details_list
 
+def con_net_req(func, list_args):
+    logger = logging.getLogger('default')
+
+    handler_list = []
+    for item in list_args:
+        handler = gevent.spawn(func, item)
+        logger.info('con_net_req submit request:\t' + str(item))
+        handler_list.append(handler)
+
+    gevent.joinall(handler_list)
+    result_details_list = []
+    for i in range(len(list_args)):
+        result_details = handler_list[i].value
+        logger.info('con_net_req get return: ' + str(result_details))
+        result_details_list.append(result_details)
+    return result_details_list
+
+
+def con_with_thread():
+    pass
 
 def max ( *args):
     size = len(args)

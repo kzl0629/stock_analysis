@@ -5,20 +5,20 @@ import sys
 import os
 import re
 import time
-import shutil
 import logging
 import csv
 from math import fabs
 import datetime
-import copy
 
+import gevent
+from gevent import monkey
 from bs4 import BeautifulSoup
 import tushare
 
-from lib.util import request_timeout, con_exec, max, min
+from lib.util import request_timeout, max, min, con_net_req
 from lib.config import ApplicatoinConfig
 
-
+monkey.patch_all()
 precision = float(ApplicatoinConfig().get_config_item('config', 'precision'))
 
 
@@ -124,7 +124,7 @@ class Dealor(object):
         start_time = time.time()
         #get all stocks
         stocks = self._list_stock()
-        stock_details_list = con_exec(self._list_details, stocks)
+        stock_details_list = con_net_req(self._list_details, stocks)
 
         #write stock code to file
         stock_code = ApplicatoinConfig().get_config_item('stock_file', 'stock_code')
@@ -155,7 +155,7 @@ class Dealor(object):
         start_time = time.time()
 
         stock_detail = ApplicatoinConfig().get_config_item('stock_file', 'stock_detail')
-        stock_details_list = con_exec(self._list_details, lines)
+        stock_details_list = con_net_req(self._list_details, lines)
         with open(stock_detail, 'w') as f:
             #f.write('名称' + '\t' + '代码' + '\t' + '静态市盈率' + '动态市盈率' + 'pb' + 'currency_value' + '\n')
             seq = 0
@@ -180,26 +180,28 @@ class Dealor(object):
     def _download_history_data(self, stock):
         today = datetime.datetime.now().__str__().split(' ')[0]
         stock = stock[2:]
-        filePath = Dealor.history_path + os.path.sep + stock + '.csv'
-        if os.path.exists(filePath) == False:
-            data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='hfq')
-            data.to_csv(filePath)
+        file_path = Dealor.history_path + os.path.sep + stock + '.csv'
+        if os.path.exists(file_path) == False:
+            self.data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='hfq', retry_count=1000,)
+            data = self.data
+            data.to_csv(file_path)
         else:
-            with open(filePath, 'r') as f:
-                f.seek(-200, 2)
+            with open(file_path, 'r') as f:
+                file_size = os.path.getsize(file_path)
+                if file_size > 500:
+                    f.seek(-500, 2)
                 lines = f.readlines()
                 items = lines[-1].split(',')
                 num = int(items[0])
                 start_date = items[1]
             #append new data
-            data = tushare.get_k_data(stock, start=start_date, end=today, autype='hfq')
-            with open(filePath, 'a') as f:
+            data = tushare.get_k_data(stock, start=start_date, end=today, autype='hfq', retry_count=1000,)
+            with open(file_path, 'a') as f:
                 itor = data.iterrows()
                 itor.next()
                 for row in itor:
                     num += 1
                     line = '%s,%s\n' % (num, ','.join(map(str,row[1].tolist())))
-
                     f.write(line)
                 f.flush()
 
@@ -215,17 +217,7 @@ class Dealor(object):
 
         start_time = time.time()
         self.logger.info('will download sotck list %s len %s' % (str(lines), len(lines)))
-        for line in lines:
-            retry_times = 10
-            for i in range(0, retry_times):
-                try:
-                    self._download_history_data(line)
-                    self.logger.info('download sotck %s at %s' % (str(line), str(datetime.datetime.now())))
-                    break
-                except Exception, e:
-                    self.logger.error('_download_history_data retry: ' + str(i) +
-                                      ' stock:' + str(line) + ' ' + e.__str__())
-                    time.sleep(55)
+        con_net_req(self._download_history_data, lines)
 
         print time.time() - start_time, 'update_hitory_data'
 
