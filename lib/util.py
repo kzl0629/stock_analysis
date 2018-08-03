@@ -1,34 +1,26 @@
 # -*- coding:utf-8 -*-
-__all__ = ['proxies', 'auth', 'process_num', 'http_timeout']
+__all__ = ['process_num', 'http_timeout']
 
 import requests
 import logging
-from requests import Response
-from requests.auth import HTTPProxyAuth
+import datetime
 from multiprocessing import Pool
 
 import gevent
-
 from lib.config import ApplicatoinConfig
-
-proxies ={"http":"http://proxy.huawei.com:8080","https":"https://proxy,huawei.com:8080"}
-auth = HTTPProxyAuth('k00399859', 'qgmmztmn_6')
-proxies = None
-auth = None
 
 process_num = int(ApplicatoinConfig().get_config_item('config', 'default_process_num'))
 http_timeout = float(ApplicatoinConfig().get_config_item('config', 'http_timeout'))
-
 
 def request_timeout(url, timout=http_timeout):
     logger = logging.getLogger('default')
     while True:
         try:
-            response = Response()
-            if proxies is not None:
-                response = requests.get(url, proxies=proxies, auth=auth)
-            else:
-                response = requests.get(url, timeout=timout)
+            start_time = datetime.datetime.now()
+            logger.debug('request time:\t' + url + '\t' + str(start_time))
+            response = requests.get(url, timeout=timout)
+            logger.debug('request time:\t' + url + '\t' + str(datetime.datetime.now() - start_time))
+
             break
         except requests.exceptions.Timeout, e:
             logger.info('Connect timeout ' + url)

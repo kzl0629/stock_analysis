@@ -60,6 +60,9 @@ def clear_log_file():
 
 def backup_log_file():
     log_file = ApplicatoinConfig().get_config_item('config', 'log_file')
+    if os.path.exists(os.path.dirname(log_file)) == False:
+        os.mkdir(os.path.dirname(log_file))
+
     if os.path.isfile(log_file):
         timestamp = datetime.datetime.now().__str__().split('.')[0].replace(' ', '_').replace(':', '_')
         shutil.move(log_file, log_file + '_' + timestamp)
