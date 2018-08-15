@@ -8,15 +8,15 @@ init()
 
 stkDealor = Dealor()
 
-
-# print stock_details_list
 # stkDealor.stocks_to_txt()
 # stkDealor.update_hitory_data()
-
+#
 # stkDealor.filter(0, 100, 0, 100, 10, 50)
 #
 # stkDealor.indexor_filter('history_data')
 
-result = stkDealor.single_stock_indexor('002830', 'resource/history_data')
-print result[-1]
-print 'over'
+# result = stkDealor.single_stock_indexor('002830', 'resource/history_data')
+# print result[-1]
+# print 'over'
+
+stkDealor.download_all_day_data()

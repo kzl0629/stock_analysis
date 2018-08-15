@@ -11,10 +11,10 @@ from math import fabs
 import datetime
 
 # from gevent import monkey
-from bs4 import BeautifulSoup
 import tushare
+import requests
 
-from lib.util import request_timeout, max, min, con_net_req
+from lib.util import max, min, con_net_req
 from lib.config import ApplicatoinConfig
 
 # monkey.patch_all()
@@ -24,6 +24,7 @@ precision = float(ApplicatoinConfig().get_config_item('config', 'precision'))
 class Dealor(object):
     logger = logging.getLogger('default')
     history_path = ApplicatoinConfig().get_config_item('stock_file', 'history_path')
+    day_history_path = ApplicatoinConfig().get_config_item('stock_file', 'day_history_path')
 
     def __init__(self):
         self.logger.info('start stock %s', str(datetime.datetime.now()))
@@ -87,8 +88,7 @@ class Dealor(object):
         today = datetime.datetime.now().__str__().split(' ')[0]
         file_path = Dealor.history_path + os.path.sep + stock + '.csv'
         if os.path.exists(file_path) == False:
-            self.data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='qfq', retry_count=1000,)
-            data = self.data
+            data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='qfq', retry_count=1000,)
             data.to_csv(file_path)
         else:
             with open(file_path, 'r') as f:
@@ -96,11 +96,15 @@ class Dealor(object):
                 if file_size > 500:
                     f.seek(-500, 2)
                 lines = f.readlines()
+                if len(lines) <= 2:
+                    data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='qfq', retry_count=1000, )
+                    data.to_csv(file_path)
+                    return
                 items = lines[-1].split(',')
                 num = int(items[0])
                 start_date = items[1]
             #append new data
-            data = tushare.get_k_data(stock, start=start_date, end=today, autype='hfq', retry_count=1000,)
+            data = tushare.get_k_data(stock, start=start_date, end=today, autype='qfq', retry_count=1000,)
             with open(file_path, 'a') as f:
                 itor = data.iterrows()
                 itor.next()
@@ -110,18 +114,23 @@ class Dealor(object):
                     f.write(line)
                 f.flush()
 
-    def update_hitory_data(self):
+    def get_stock_codes(self):
         stock_detail = ApplicatoinConfig().get_config_item('stock_file', 'stock_detail')
         with open(stock_detail, 'r') as f1:
             lines = f1.readlines()
             lines = map(lambda x: x.split(',')[1], lines)
 
+        return lines
+
+    def update_hitory_data(self):
+        stock_codes = self.get_stock_codes()
+
         if os.path.exists(Dealor.history_path) == False:
             os.mkdir(Dealor.history_path)
 
         start_time = time.time()
-        self.logger.info('will download sotck list %s len %s' % (str(lines), len(lines)))
-        con_net_req(self._download_history_data, lines)
+        self.logger.info('will download sotck list %s len %s' % (str(stock_codes), len(stock_codes)))
+        con_net_req(self._download_history_data, stock_codes)
 
         print time.time() - start_time, 'update_hitory_data'
 
@@ -253,6 +262,68 @@ class Dealor(object):
         else:
             return False
 
+    def download_day_data(self, stock):
+        stock_dir = '%s/%s' % (self.day_history_path, stock)
+        if os.path.exists(stock_dir) is False:
+            os.mkdir(stock_dir)
+
+        lines = None
+        with open('%s/%s.csv' % (self.history_path, stock)) as f:
+            lines = f.readlines()
+
+        del lines[0]
+        over_flag = 0
+        for line_num in range(len(lines) - 1, -1, -1):
+            date = lines[line_num].split(',')[1]
+            year = int(date.split('-')[0])
+            if year <= 2016:
+                continue
+
+            stock_file_path = '%s/%s_%s.csv' % (stock_dir, stock, date)
+            if os.path.exists(stock_file_path) is False:
+                try:
+                    df = tushare.get_tick_data(stock, date=date, src='tt')
+                    # if df is None:
+                    #     df = tushare.get_tick_data(stock, date=date, src='sn')
+                    #     if df is not None:
+                    #         self.logger.info('tt data is none but sn is good:%s %s' % (stock, date))
+                except Exception,e:
+                    self.logger.info('get exception :%s %s , msg:%s' % (stock, date, e.message))
+                    continue
+                except requests.exceptions.Timeout, e:
+                    self.logger.info('get timeout exception :%s %s , msg:%s' % (stock, date, e.message))
+                    time.sleep(50)
+                    continue
+
+                if df is None:
+                    over_flag += 1
+                    self.logger.info('day data is none:%s %s, num: %s' % (stock, date, over_flag))
+                    with open(stock_file_path, 'w') as f:
+                        f.write('none\n')
+                        f.flush()
+                    if over_flag > 365:
+                        self.logger.info('last day data is none:%s %s' % (stock, date))
+                        break
+                    continue
+                over_flag = 0
+                df.to_csv(stock_file_path)
+                self.logger.info('write day data:%s' % stock_file_path)
+            else:
+                self.logger.info('day data exists:%s' % stock_file_path)
+                continue
+
+        return
+
+    def download_all_day_data(self):
+        stock_codes = self.get_stock_codes()
+
+        start_time = time.time()
+        self.logger.info('will download_all_day_data stock list %s len %s' % (str(stock_codes), len(stock_codes)))
+        for code in stock_codes:
+            self.download_day_data(code)
+        print time.time() - start_time, 'download_all_day_data'
+
+
 class Indexor(object):
     def __init__(self):
         self.logger = logging.getLogger('default')
@@ -294,10 +365,9 @@ class Indexor(object):
             macd.append(2 * (diff[i] - dea9[i]))
         return diff, dea9, macd
 
+
     def _rsv(self, settlements, day_lowest, day_highest, day):
-
         rsv_list = list([50 for i in range(day - 1)])
-
         for i in range(day - 1, len(settlements)):
             if i == 220:
                 pass

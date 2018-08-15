@@ -1,8 +1,8 @@
 ##ignore this file##
-resource/history_data*
 .DS_Store
 .idea
 logs
 *.txt
 *.pyc
+*.csv
 nohup.out
