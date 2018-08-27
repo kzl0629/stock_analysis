@@ -6,3 +6,4 @@ logs
 *.pyc
 *.csv
 nohup.out
+data_dir
