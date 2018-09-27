@@ -8,8 +8,8 @@ init()
 
 stkDealor = Dealor()
 
-# stkDealor.stocks_to_txt()
-# stkDealor.update_hitory_data()
+stkDealor.stocks_to_txt()
+stkDealor.update_hitory_data()
 #
 # stkDealor.filter(0, 100, 0, 100, 10, 50)
 #

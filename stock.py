@@ -86,6 +86,7 @@ class Dealor(object):
 
     def _download_history_data(self, stock):
         today = datetime.datetime.now().__str__().split(' ')[0]
+        self.logger.info('start download stock %s, data:%s' % (stock, today))
         file_path = Dealor.history_path + os.path.sep + stock + '.csv'
         if os.path.exists(file_path) == False:
             data = tushare.get_k_data(stock, start='1990-12-01', end=today, autype='qfq', retry_count=1000,)
@@ -113,6 +114,7 @@ class Dealor(object):
                     line = '%s,%s\n' % (num, ','.join(map(str,row[1].tolist())))
                     f.write(line)
                 f.flush()
+        self.logger.info('finish download stock %s, data:%s' % (stock, today))
 
     def get_stock_codes(self):
         stock_detail = ApplicatoinConfig().get_config_item('stock_file', 'stock_detail')
