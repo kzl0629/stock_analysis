@@ -1,24 +1,26 @@
-from lib.logger_util import init, backup_log_file
-from stock import Dealor
+
 import datetime
 
-#clear_log_file()
-backup_log_file()
-init()
+import tushare
 
-stkDealor = Dealor()
+from business.data import Downlaoder
+from lib.logger_util import initLog
 
+initLog()
 
-stkDealor.update_stock_list()
+start = datetime.datetime.now()
+# ts.get_today_all()
+# import tushare as ts
 
-stkDealor.stocks_to_txt()
-stkDealor.update_hitory_data('slow')
-stkDealor.filter(0,100,0,100,1,100,50, None)
-
-
-#stkDealor.indexor_filter('history_data',
-#                         '/Users/zkou/PythonProjects/stock_analysis/resource/history_data_2018-07-02_23_02_37')
-#stkDealor._download_history_data('600477')
-# k_value, d_value, j_value, diff, dea9, macd = stkDealor.single_stock_indexor('600477')
+# df = ts.get_index()
+# stock_detail = tushare.get_stock_basics()
+# print datetime.datetime.now() - start
 #
-# print k_value[-5:], d_value[-5:], diff[-5:], dea9[-5:]
+# print stock_detail
+
+obj1 = Downlaoder()
+# obj1.getDetails()
+# obj1._kDataOnce('601162')
+obj1.getKData()
+# obj1._dayDataOnce('601162')
+obj1.getDayData()

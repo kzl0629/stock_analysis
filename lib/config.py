@@ -2,31 +2,25 @@
 
 import os
 import ConfigParser
+from lib.singletan import Singletan
 
-class singletan(type):
-    def __init__(self, name, father, attr):
-        self.instance = None
-
-    def __call__(self, *args, **kwargs):
-        if self.instance == None:
-            self.instance = super(singletan, self).__call__(*args,**kwargs)
-        return self.instance
 
 class ApplicatoinConfig(object):
-    __metaclass__ = singletan
-    config_path = '/../resource/config.ini'
+    __metaclass__ = Singletan
+    configPath = os.path.dirname(__file__) + '/../resource/config.ini'
 
     def __init__(self):
         self.cf = ConfigParser.ConfigParser()
+        self._readConfig()
 
-    def list_config(self):
-        pass
+    def _readConfig(self):
+        self.cf.read(ApplicatoinConfig.configPath)
 
-    def _read_config(self):
-        cur_path = os.path.dirname(__file__)
-        config_path = cur_path + ApplicatoinConfig.config_path
-        self.cf.read(config_path)
+    def _updateConfig(self, section, option, value=None):
+        self._readConfig()
+        self.cf.set(section, option, value)
+        with open(ApplicatoinConfig.configPath, 'w') as f:
+            self.cf.write(f)
 
-    def get_config_item(self, section, key):
-        self._read_config()
+    def getConfigItem(self, section, key):
         return self.cf.get(section, key)

@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-__all__ = ['base_path']
+
 import os
 import shutil
 import datetime
@@ -7,11 +7,9 @@ import logging.config
 
 from lib.config import  ApplicatoinConfig
 
-base_path = os.path.dirname(ApplicatoinConfig().get_config_item('config', 'log_file'))
-if not os.path.isdir(base_path):
-    os.mkdir(base_path)
 
-def init():
+def initLog():
+    backupLogFile()
     logging.config.dictConfig({
         'version': 1,
         'disable_existing_loggers': True,
@@ -19,7 +17,7 @@ def init():
         'formatters': {
             'verbose': {
                 'format': "[%(asctime)s]  %(levelname)s [%(filename)s:%(lineno)s:%(funcName)s]:%(process)d:%(thread)d %(message)s",
-                'datefmt': "%Y-%m-%d %H:%M:%S"
+                'datefmt': ApplicatoinConfig().getConfigItem('config', 'datetime_format')
             },
             'simple2': {
                 'format': '%(levelname)s %(message)s'
@@ -44,36 +42,37 @@ def init():
                 'backupCount': 50,
                 # If delay is true,
                 # then file opening is deferred until the first call to emit().
-                'filename': ApplicatoinConfig().get_config_item('config', 'log_file'),
+                'filename': ApplicatoinConfig().getConfigItem('config', 'log_file'),
                 'formatter': 'verbose'
             }
         },
         'loggers': {
             'default': {
-                'handlers': ['file',],
-                'level': 'DEBUG',
+                'handlers': [ApplicatoinConfig().getConfigItem('config', 'log_handler'),],
+                'level': ApplicatoinConfig().getConfigItem('config', 'log_level'),
             },
         }
     })
 
-def clear_log_file():
-    log_file = ApplicatoinConfig().get_config_item('config', 'log_file')
-    if os.path.exists(log_file):
-        os.remove(log_file)
+def clearLogFile():
+    logFile = ApplicatoinConfig().getConfigItem('config', 'log_file')
+    if os.path.exists(logFile):
+        os.remove(logFile)
 
-def backup_log_file():
-    log_file = ApplicatoinConfig().get_config_item('config', 'log_file')
-    if os.path.isfile(log_file):
+def backupLogFile():
+    logFile = ApplicatoinConfig().getConfigItem('config', 'log_file')
+    if os.path.isfile(logFile):
         timestamp = datetime.datetime.now().__str__().split('.')[0].replace(' ', '_').replace(':', '_')
-        shutil.move(log_file, log_file + '_' + timestamp)
+        shutil.move(logFile, logFile + '_' + timestamp)
 
-    base_path = os.path.dirname(log_file)
-    tmp = os.listdir(base_path)
-    dir_list = []
+    basePath = os.path.dirname(logFile)
+
+    tmp = os.listdir(basePath)
+    dirList = []
     for i in range(0, len(tmp)):
-        if tmp[i].startswith('stock.log2_'):
-            dir_list.append(tmp[i])
-    if len(dir_list) > 3:
-        dir_list.sort()
-        for item in dir_list[0:-3]:
-            os.remove(base_path + os.path.sep + item)
+        if tmp[i].startswith(os.path.basename(logFile + '_')):
+            dirList.append(tmp[i])
+    if len(dirList) > 3:
+        dirList.sort()
+        for item in dirList[0:-3]:
+            os.remove(basePath + os.path.sep + item)
