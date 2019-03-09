@@ -39,7 +39,7 @@ def initLog():
                 # 当达到10MB时分割日志
                 'maxBytes': 1024 * 1024 * 10,
                 # 最多保留50份文件
-                'backupCount': 50,
+                'backupCount': 100,
                 # If delay is true,
                 # then file opening is deferred until the first call to emit().
                 'filename': ApplicatoinConfig().getConfigItem('config', 'log_file'),

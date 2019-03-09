@@ -264,3 +264,7 @@ def conGevent(func, list_args):
     for ret in retItor:
         resultList.append(ret)
     return resultList
+
+def mkdirOnce(filePath):
+    if os.path.exists(filePath) == False:
+        os.makedirs(filePath)
